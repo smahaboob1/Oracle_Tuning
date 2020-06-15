@@ -1,4 +1,4 @@
-Case Study 1:
+Case Study 1: (Execution sequence - 3 2 5 4 2 1 0)
 ---------------------------------------------------------------------------------------------------------------
 
 SELECT  /*+ Case_Study_1 */ E.FIRST_NAME,E.LAST_NAME
