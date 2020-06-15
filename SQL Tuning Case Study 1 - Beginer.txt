@@ -1,0 +1,145 @@
+Case Study 1:
+---------------------------------------------------------------------------------------------
+
+SELECT /*+  Case_Study_1 */ E.EMPLOYEE_ID, E.FIRST_NAME
+
+FROM    EMPLOYEES E
+
+WHERE   E.PHONE_NUMBER       = '011.44.1344.345268'
+        AND HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS')
+        AND E.COMMISSION_PCT IN ( .25 , .15 )
+        AND E.EMPLOYEE_ID BETWEEN 100 AND 175;
+
+EMPLOYEE_ID FIRST_NAME           
+----------- -------------------- 
+        151 David                
+
+Plan hash value: 603312277
+
+---------------------------------------------------------------------------------------------
+| Id  | Operation                   | Name          | Rows  | Bytes | Cost (%CPU)| Time     |
+---------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT            |               |     1 |    36 |     1   (0)| 00:00:01 |
+|*  1 |  TABLE ACCESS BY INDEX ROWID| EMPLOYEES     |     1 |    36 |     1   (0)| 00:00:01 |
+|*  2 |   INDEX RANGE SCAN          | EMP_EMP_ID_PK |    77 |       |     1   (0)| 00:00:01 |
+---------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter("E"."PHONE_NUMBER"='011.44.1344.429268' AND ("E"."COMMISSION_PCT"=.15 OR "E"."COMMISSION_PCT"=.25) AND "HIRE_DATE">TO_DATE(' 2004-01-30 00:00:00','syyyy-mm-dd hh24:mi:ss'))
+   2 - access("E"."EMPLOYEE_ID">=100 AND "E"."EMPLOYEE_ID"<=175)
+
+     
+TABLE STATISTICS  for EMPLOYEES
+                                                 
+TABLE_NAME                        NUM_ROWS  STALE
+------------------------------ -----------  -----
+EMPLOYEES                              107  NO   
+
+COLUMN STATISTICS for EMPLOYEES
+
+COLUMN_NAME                   NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------- ------------ ---------- ----- ------- -------------------------------- --------------------------------
+COMMISSION_PCT                           7         72               .1                               .4
+DEPARTMENT_ID                           11          1 FREQ  11      10                               110
+EMAIL                                  107          0               ABANDA                           WTAYLOR
+EMPLOYEE_ID                            107          0               100                              206
+FIRST_NAME                              91          0               Adam                             Winston
+HIRE_DATE                               98          0 FREQ  98      13-JAN-2001 00:00:00             21-APR-2008 00:00:00
+JOB_ID                                  19          0               AC_ACCOUNT                       ST_MAN
+LAST_NAME                              102          0               Abel                             Zlotkey
+MANAGER_ID                              18          1               100                              205
+PHONE_NUMBER                           107          0               011.44.1343.329                  650.509.4876
+SALARY                                  58          0               2100                             24000
+
+INDEX STATISTICS for EMPLOYEES
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+------------------------------ ------- --------- ----------
+EMP_DEPARTMENT_IX                   11       107 NONUNIQUE
+-->DEPARTMENT_ID
+
+EMP_EMAIL_UK                       107       107 UNIQUE
+-->EMAIL
+
+EMP_EMP_ID_PK                      107       107 UNIQUE
+-->EMPLOYEE_ID
+
+EMP_ID_SAL                          74       107 NONUNIQUE
+-->DEPARTMENT_ID,SALARY
+
+EMP_JOB_IX                          19       107 NONUNIQUE
+-->JOB_ID
+
+EMP_MANAGER_IX                      18       107 NONUNIQUE
+-->MANAGER_ID
+
+EMP_NAME_IX                        107       107 NONUNIQUE
+-->LAST_NAME,FIRST_NAME
+
+
+
+Resolution :
+
+Create an index on phone_number column of employees table as phone_number is having too many distinct values and it will be unique.
+
+E.PHONE_NUMBER = '011.44.1344.429268' will qualify for only 1 row and hence creating an index on this column will significantly improve the performance.
+
+You can also create custom indexes on EMPLOYEE_ID,COMMISSION_PCT,HIRE_DATE as this combination also qualifies for less number of rows. however, this will consume some storage and if these 
+columns will not be used for other queries, then creating an index for these column and for this script alone may turn out to be waste. Hence, creating an index on phone_number will 
+proove helpful as this column may be present as part ofother queries.
+
+
+SQL> select count(*) from employees where PHONE_NUMBER = '011.44.1344.429268';
+  COUNT(*)
+----------
+         1
+
+SQL> select count(*) from employees where HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS');
+  COUNT(*)
+----------
+        91
+
+SQL> select count(*) from employees where COMMISSION_PCT IN ( .25 , .15 );
+  COUNT(*)
+----------
+        11
+
+SQL> select count(*) from employees where EMPLOYEE_ID BETWEEN 100 AND 175 and HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS') 
+     and COMMISSION_PCT IN ( .25 , .15 );
+  COUNT(*)
+----------
+        10
+
+
+SQL> create index EMP_PHN_NUM on EMPLOYEES(phone_number);
+
+Index created.
+
+
+SELECT /*+  Case_Study_1 */ E.EMPLOYEE_ID, E.FIRST_NAME
+
+FROM    EMPLOYEES E
+
+WHERE   E.PHONE_NUMBER       = '011.44.1344.429268'
+        AND HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS')
+        AND E.COMMISSION_PCT IN ( .25 , .15 )
+        AND E.EMPLOYEE_ID BETWEEN 100 AND 175;
+		
+Plan hash value: 1843444857
+
+-------------------------------------------------------------------------------------------
+| Id  | Operation                   | Name        | Rows  | Bytes | Cost (%CPU)| Time     |
+-------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT            |             |     1 |    36 |     1   (0)| 00:00:01 |
+|*  1 |  TABLE ACCESS BY INDEX ROWID| EMPLOYEES   |     1 |    36 |     1   (0)| 00:00:01 |
+|*  2 |   INDEX RANGE SCAN          | EMP_PHN_NUM |     1 |       |     1   (0)| 00:00:01 |
+-------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(("E"."COMMISSION_PCT"=.15 OR "E"."COMMISSION_PCT"=.25) AND "E"."EMPLOYEE_ID"<=175 AND "HIRE_DATE">TO_DATE(' 2004-01-30 00:00:00','syyyy-mm-dd hh24:mi:ss') 
+              AND "E"."EMPLOYEE_ID">=100)
+   2 - access("E"."PHONE_NUMBER"='011.44.1344.429268')
