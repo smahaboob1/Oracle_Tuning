@@ -1,5 +1,8 @@
 Case Study 1:
----------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------
+1. Create Index on the column which has max number of distinct rows (close to total records in the table)
+2. Create Index on the column that has '=' operator in SQL (< or > will return multiple records)
+---------------------------------------------------------------------------------------------------------
 
 SELECT /*+  Case_Study_1 */ E.EMPLOYEE_ID, E.FIRST_NAME
 
