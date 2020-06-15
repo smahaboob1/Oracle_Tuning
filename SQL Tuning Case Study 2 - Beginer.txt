@@ -1,0 +1,140 @@
+Case Study 1:
+---------------------------------------------------------------------------------------------------------------
+
+SELECT  /*+ Case_Study_1 */ E.FIRST_NAME,E.LAST_NAME
+
+FROM  EMPLOYEES E,DEPARTMENTS D  
+
+WHERE E.EMPLOYEE_ID = 101  
+AND E.HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS')    
+AND E.HIRE_DATE < to_date('30-JAN-2006 00:00:00','DD-MON-YYYY HH24:MI:SS')
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID
+AND D.LOCATION_ID  = 1700;
+
+EMPLOYEE_ID FIRST_NAME           FIRST_NAME
+----------- -------------------- --------------------
+      101   Neena                Neena
+
+
+Plan hash value: 2782876085
+
+----------------------------------------------------------------------------------------------
+| Id  | Operation                    | Name          | Rows  | Bytes | Cost (%CPU)| Time     |
+----------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT             |               |     1 |    37 |     2   (0)| 00:00:01 |
+|   1 |  NESTED LOOPS                |               |     1 |    37 |     2   (0)| 00:00:01 |
+|*  2 |   TABLE ACCESS BY INDEX ROWID| EMPLOYEES     |     1 |    30 |     1   (0)| 00:00:01 |
+|*  3 |    INDEX UNIQUE SCAN         | EMP_EMP_ID_PK |     1 |       |     1   (0)| 00:00:01 |
+|*  4 |   TABLE ACCESS BY INDEX ROWID| DEPARTMENTS   |     1 |     7 |     1   (0)| 00:00:01 |
+|*  5 |    INDEX UNIQUE SCAN         | DEPT_ID_PK    |     1 |       |     1   (0)| 00:00:01 |
+----------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - filter("E"."HIRE_DATE"<TO_DATE(' 2006-01-30 00:00:00', 'syyyy-mm-ddhh24:mi:ss') AND "E"."HIRE_DATE">TO_DATE(' 2004-01-30 00:00:00', 'syyyy-mm-ddhh24:mi:ss'))
+   3 - access("E"."EMPLOYEE_ID"=101)
+   4 - filter("D"."LOCATION_ID"=1700)
+   5 - access("E"."DEPARTMENT_ID"="D"."DEPARTMENT_ID")
+
+
+TABLE STATISTICS  for EMPLOYEES
+                                                 
+TABLE_NAME                        NUM_ROWS  STALE
+------------------------------ -----------  -----
+EMPLOYEES                              107  NO   
+
+COLUMN STATISTICS for EMPLOYEES
+
+COLUMN_NAME                   NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------- ------------ ---------- ----- ------- -------------------------------- --------------------------------
+COMMISSION_PCT                           7         72               .1                               .4
+DEPARTMENT_ID                           11          1 FREQ  11      10                               110
+EMAIL                                  107          0               ABANDA                           WTAYLOR
+EMPLOYEE_ID                            107          0               100                              206
+FIRST_NAME                              91          0               Adam                             Winston
+HIRE_DATE                               98          0 FREQ  98      13-JAN-2001 00:00:00             21-APR-2008 00:00:00
+JOB_ID                                  19          0               AC_ACCOUNT                       ST_MAN
+LAST_NAME                              102          0               Abel                             Zlotkey
+MANAGER_ID                              18          1               100                              205
+PHONE_NUMBER                           107          0               011.44.1343.329                  650.509.4876
+SALARY                                  58          0               2100                             24000
+
+INDEX STATISTICS for EMPLOYEES
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+------------------------------ ------- --------- ----------
+EMP_DEPARTMENT_IX                   11       107 NONUNIQUE
+-->DEPARTMENT_ID
+
+EMP_EMAIL_UK                       107       107 UNIQUE
+-->EMAIL
+
+EMP_EMP_ID_PK                      107       107 UNIQUE
+-->EMPLOYEE_ID
+
+EMP_ID_SAL                          74       107 NONUNIQUE
+-->DEPARTMENT_ID,SALARY
+
+EMP_JOB_IX                          19       107 NONUNIQUE
+-->JOB_ID
+
+EMP_MANAGER_IX                      18       107 NONUNIQUE
+-->MANAGER_ID
+
+EMP_NAME_IX                        107       107 NONUNIQUE
+-->LAST_NAME,FIRST_NAME
+
+
+
+TABLE STATISTICS for DEPARTMENTS
+                                           
+TABLE_NAME                NUM_ROWS   STALE 
+----------------------------------   ----- 
+DEPARTMENTS                     27   NO    
+
+COLUMN STATISTICS for DEPARTMENTS
+
+COLUMN_NAME                  NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------------------- ---------- ----- ------- -------------------------------- --------------------------------
+DEPARTMENT_ID                          27          0               10                               270
+DEPARTMENT_NAME                        27          0               Accounting                       Treasury
+LOCATION_ID                             7          0 FREQ  7       1400                             2700
+MANAGER_ID                             11         16               100                              205
+
+INDEX STATISTICS for DEPARTMENTS
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+--------------------------------------  -------- ----------
+DEPT_ID_PK                          27        27 UNIQUE
+-->DEPARTMENT_ID                        
+                                        
+DEPT_LOCATION_IX                     7        27 NONUNIQUE
+-->LOCATION_ID
+
+
+
+Resolution:
+
+This is already running with the best plan.
+
+We cannot start with the join operation first. We have only two options, either to start with E.EMPLOYEE_ID = 101 and D.LOCATION_ID  = 1700.
+
+However, D.LOCATION_ID  = 1700 is qualifying for more than 80% of rows in the departmens tables ( 21 rows ) and hence it will not be a good column to start with.
+
+E.EMPLOYEE_ID = 101 qualifies for only 1 row and this one row is further given out for join operation. Hence, the script is already running with the best plan.
+
+SQL> select count(*) from employees where EMPLOYEE_ID = 101 ;
+  COUNT(*)
+----------
+         1
+
+SQL> select count(*) from departments;
+  COUNT(*)
+----------
+        27
+
+SQL> select count(*) from departments where LOCATION_ID  = 1700;
+  COUNT(*)
+----------
+        21
