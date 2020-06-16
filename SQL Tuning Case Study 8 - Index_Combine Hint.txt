@@ -1,0 +1,165 @@
+Case Study 9:
+---------------------------------------------------------------------------------------------------------------
+
+SELECT  /*+ Case_Study_9 */ E.FIRST_NAME,E.LAST_NAME
+
+FROM  EMPLOYEES E,DEPARTMENTS D  
+
+WHERE ( E.EMPLOYEE_ID = 101 OR E.DEPARTMENT_ID = 10 )
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID
+AND D.LOCATION_ID  = 1700;
+
+FIRST_NAME           LAST_NAME
+-------------------- -------------------------
+Neena                Kochhar
+Jennifer             Whalen
+
+
+Plan hash value: 919050303
+
+--------------------------------------------------------------------------------------------
+| Id  | Operation                    | Name        | Rows  | Bytes | Cost (%CPU)| Time     |
+--------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT             |             |     2 |    58 |     4   (0)| 00:00:01 |
+|   1 |  NESTED LOOPS                |             |     2 |    58 |     4   (0)| 00:00:01 |
+|   2 |   NESTED LOOPS               |             |     2 |    58 |     4   (0)| 00:00:01 |
+|*  3 |    TABLE ACCESS FULL         | EMPLOYEES   |    107|    44 |   150   (0)| 00:00:01 |
+|*  4 |    INDEX UNIQUE SCAN         | DEPT_ID_PK  |     1 |       |     1   (0)| 00:00:01 |
+|*  5 |   TABLE ACCESS BY INDEX ROWID| DEPARTMENTS |     1 |     7 |     1   (0)| 00:00:01 |
+--------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   3 - filter("E"."DEPARTMENT_ID"=10 OR "E"."EMPLOYEE_ID"=101)
+   4 - access("E"."DEPARTMENT_ID"="D"."DEPARTMENT_ID")
+   5 - filter("D"."LOCATION_ID"=1700)
+
+
+
+TABLE STATISTICS  for EMPLOYEES
+                                                 
+TABLE_NAME                        NUM_ROWS  STALE
+------------------------------ -----------  -----
+EMPLOYEES                              107  NO   
+
+COLUMN STATISTICS for EMPLOYEES
+
+COLUMN_NAME                   NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------- ------------ ---------- ----- ------- -------------------------------- --------------------------------
+COMMISSION_PCT                           7         72               .1                               .4
+DEPARTMENT_ID                           11          1 FREQ  11      10                               110
+EMAIL                                  107          0               ABANDA                           WTAYLOR
+EMPLOYEE_ID                            107          0               100                              206
+FIRST_NAME                              91          0               Adam                             Winston
+HIRE_DATE                               98          0 FREQ  98      13-JAN-2001 00:00:00             21-APR-2008 00:00:00
+JOB_ID                                  19          0               AC_ACCOUNT                       ST_MAN
+LAST_NAME                              102          0               Abel                             Zlotkey
+MANAGER_ID                              18          1               100                              205
+PHONE_NUMBER                           107          0               011.44.1343.329                  650.509.4876
+SALARY                                  58          0               2100                             24000
+
+INDEX STATISTICS for EMPLOYEES
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+------------------------------ ------- --------- ----------
+EMP_DEPARTMENT_IX                   11       107 NONUNIQUE
+-->DEPARTMENT_ID
+
+EMP_EMAIL_UK                       107       107 UNIQUE
+-->EMAIL
+
+EMP_EMP_ID_PK                      107       107 UNIQUE
+-->EMPLOYEE_ID
+
+EMP_ID_SAL                          74       107 NONUNIQUE
+-->DEPARTMENT_ID,SALARY
+
+EMP_JOB_IX                          19       107 NONUNIQUE
+-->JOB_ID
+
+EMP_MANAGER_IX                      18       107 NONUNIQUE
+-->MANAGER_ID
+
+EMP_NAME_IX                        107       107 NONUNIQUE
+-->LAST_NAME,FIRST_NAME
+
+
+
+TABLE STATISTICS for DEPARTMENTS
+                                           
+TABLE_NAME                NUM_ROWS   STALE 
+----------------------------------   ----- 
+DEPARTMENTS                     27   NO    
+
+COLUMN STATISTICS for DEPARTMENTS
+
+COLUMN_NAME                  NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------------------- ---------- ----- ------- -------------------------------- --------------------------------
+DEPARTMENT_ID                          27          0               10                               270
+DEPARTMENT_NAME                        27          0               Accounting                       Treasury
+LOCATION_ID                             7          0 FREQ  7       1400                             2700
+MANAGER_ID                             11         16               100                              205
+
+INDEX STATISTICS for DEPARTMENTS
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+--------------------------------------  -------- ----------
+DEPT_ID_PK                          27        27 UNIQUE
+-->DEPARTMENT_ID                        
+                                        
+DEPT_LOCATION_IX                     7        27 NONUNIQUE
+-->LOCATION_ID
+
+
+
+Resolution:
+
+Whenever there is an OR condition both the columns in the OR operator has to be scanned separately using separate index. This is accomplished by INDEX_COMBINE hint. Index EMP_DEPARTMENT_IX will scan E.DEPARTMENT_ID = 10 and expect one row. Similarly, Index EMP_EMP_ID_PK will scan for E.EMPLOYEE_ID = 101 and expect 1 row again. There will be a bitmap conversion from rowid's followed by a bitmap OR operation to give the result set for EMPLOYEES table. These two rows will further be given for join operation with the departments table.
+
+
+SELECT  /*+ INDEX_COMBINE(E EMP_DEPARTMENT_IX EMP_EMP_ID_PK) */ E.FIRST_NAME,E.LAST_NAME
+FROM  EMPLOYEES E,DEPARTMENTS D  
+WHERE ( E.EMPLOYEE_ID = 101 OR E.DEPARTMENT_ID = 10 )
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID
+AND D.LOCATION_ID  = 1700;
+
+Plan hash value: 1263223842
+
+--------------------------------------------------------------------------------------------------------
+| Id  | Operation                          | Name              | Rows  | Bytes | Cost (%CPU)| Time     |
+--------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                   |                   |     2 |    58 |     3   (0)| 00:00:01 |
+|   1 |  NESTED LOOPS                      |                   |     2 |    58 |     3   (0)| 00:00:01 |
+|   2 |   NESTED LOOPS                     |                   |     2 |    58 |     3   (0)| 00:00:01 |
+|   3 |    TABLE ACCESS BY INDEX ROWID     | EMPLOYEES         |     2 |    44 |     2   (0)| 00:00:01 |
+|   4 |     BITMAP CONVERSION TO ROWIDS    |                   |       |       |            |          |
+|   5 |      BITMAP OR                     |                   |       |       |            |          |
+|   6 |       BITMAP CONVERSION FROM ROWIDS|                   |       |       |            |          |
+|*  7 |        INDEX RANGE SCAN            | EMP_DEPARTMENT_IX |       |       |     1   (0)| 00:00:01 |
+|   8 |       BITMAP CONVERSION FROM ROWIDS|                   |       |       |            |          |
+|*  9 |        INDEX RANGE SCAN            | EMP_EMP_ID_PK     |       |       |     1   (0)| 00:00:01 |
+|* 10 |    INDEX UNIQUE SCAN               | DEPT_ID_PK        |     1 |       |     1   (0)| 00:00:01 |
+|* 11 |   TABLE ACCESS BY INDEX ROWID      | DEPARTMENTS       |     1 |     7 |     1   (0)| 00:00:01 |
+--------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   7 - access("E"."DEPARTMENT_ID"=10)
+   9 - access("E"."EMPLOYEE_ID"=101)
+  10 - access("E"."DEPARTMENT_ID"="D"."DEPARTMENT_ID")
+  11 - filter("D"."LOCATION_ID"=1700)
+
+SQL> select count(*) from employees where employee_id = 101;
+
+  COUNT(*)
+----------
+         1
+
+SQL> select count(*) from employees where department_id = 10;
+
+  COUNT(*)
+----------
+         1
+
