@@ -1,0 +1,63 @@
+Case Study 13:
+---------------------------------------------------------------------------------------------------------------
+
+SELECT  /*+ Case_Study_13 */ E.FIRST_NAME,E.LAST_NAME,D.DEPARTMENT_ID
+FROM  EMPLOYEES E,DEPARTMENTS D  
+WHERE D.LOCATION_ID = 1800
+AND E.EMPLOYEE_ID=175
+AND D.DEPARTMENT_ID = E.DEPARTMENT_ID;
+
+no rows selected
+
+
+Execution Plan
+----------------------------------------------------------
+Plan hash value: 1363352941
+
+-------------------------------------------------------------------------------------------------
+| Id  | Operation                    | Name             | Rows  | Bytes | Cost (%CPU)| Time     |
+-------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT             |                  |     1 |    29 |     2   (0)| 00:00:01 |
+|   1 |  NESTED LOOPS                |                  |     1 |    29 |     2   (0)| 00:00:01 |
+|   2 |   TABLE ACCESS BY INDEX ROWID| EMPLOYEES        |     1 |    22 |     1   (0)| 00:00:01 |
+|*  3 |    INDEX UNIQUE SCAN         | EMP_EMP_ID_PK    |     1 |       |     1   (0)| 00:00:01 |
+|*  4 |   TABLE ACCESS BY INDEX ROWID| DEPARTMENTS      |     1 |     7 |     1   (0)| 00:00:01 |
+|*  5 |    INDEX RANGE SCAN          | DEPT_LOCATION_IX |     1 |       |     1   (0)| 00:00:01 |
+-------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   3 - access("E"."EMPLOYEE_ID"=175)
+   4 - filter("D"."DEPARTMENT_ID"="E"."DEPARTMENT_ID")
+   5 - access("D"."LOCATION_ID"=1800)
+
+SQL> select count(*) from departments where location_id=1800;
+
+  COUNT(*)
+----------
+         1
+
+SQL> select count(*) from employees where employee_id=175;
+
+  COUNT(*)
+----------
+         1
+
+SQL> select department_id,location_id from departments where location_id=1800;
+
+DEPARTMENT_ID LOCATION_ID
+------------- -----------
+           20        1800
+
+SQL> select count(*) from employees where department_id=20;
+
+  COUNT(*)
+----------
+         20
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Resolution:
+
+If the two tables involved in the join operation has a better where clause predicate that would restrict to least number of rows, then both two tables should be accessed first using such columns rather than the join condition colmuns. In this case, Employee_ID=175 and LOCATION_Id=1800 has only one occurance in EMPLOYEES and DEPARTMENTS table. Hence, they should be accessed respectively and then joined using DEPRATMENT_ID column.
