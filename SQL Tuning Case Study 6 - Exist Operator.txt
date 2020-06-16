@@ -1,0 +1,204 @@
+
+Case Study 6
+---------------------------------------------------------------------------------------------------------------
+
+SELECT E.FIRST_NAME,E.LAST_NAME,E.HIRE_DATE
+FROM  EMPLOYEES E, DEPARTMENTS D
+WHERE E.EMPLOYEE_ID IN (101,102,103,104,105 )
+AND EXISTS ( SELECT JOB_ID FROM JOBS J WHERE J.JOB_ID = E.JOB_ID )
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID;
+
+FIRST_NAME           LAST_NAME                 HIRE_DATE
+-------------------- ------------------------- --------------------
+Neena                Kochhar                   21-SEP-2005 00:00:00
+Lex                  De Haan                   13-JAN-2001 00:00:00
+Alexander            Hunold                    03-JAN-2006 00:00:00
+Bruce                Ernst                     21-MAY-2007 00:00:00
+David                Austin                    25-JUN-2005 00:00:00
+
+
+Plan hash value: 3862726925
+
+------------------------------------------------------------------------------------------------
+| Id  | Operation                      | Name          | Rows  | Bytes | Cost (%CPU)| Time     |
+------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT               |               |     5 |   255 |     4  (25)| 00:00:01 |
+|   1 |  NESTED LOOPS                  |               |     5 |   255 |     4  (25)| 00:00:01 |
+|*  2 |   HASH JOIN                    |               |     5 |   235 |     3  (34)| 00:00:01 |
+|   3 |    SORT UNIQUE                 |               |    19 |   152 |     1   (0)| 00:00:01 |
+|   4 |     INDEX FULL SCAN            | JOB_ID_PK     |    19 |   152 |     1   (0)| 00:00:01 |
+|   5 |    INLIST ITERATOR             |               |       |       |            |          |
+|   6 |     TABLE ACCESS BY INDEX ROWID| EMPLOYEES     |     5 |   195 |     1   (0)| 00:00:01 |
+|*  7 |      INDEX UNIQUE SCAN         | EMP_EMP_ID_PK |     5 |       |     1   (0)| 00:00:01 |
+|*  8 |   INDEX UNIQUE SCAN            | DEPT_ID_PK    |     1 |     4 |     1   (0)| 00:00:01 |
+------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - access("J"."JOB_ID"="E"."JOB_ID")
+   7 - access("E"."EMPLOYEE_ID"=101 OR "E"."EMPLOYEE_ID"=102 OR "E"."EMPLOYEE_ID"=103
+              OR "E"."EMPLOYEE_ID"=104 OR "E"."EMPLOYEE_ID"=105)
+   8 - access("E"."DEPARTMENT_ID"="D"."DEPARTMENT_ID")
+
+
+TABLE STATISTICS  for EMPLOYEES
+                                                 
+TABLE_NAME                        NUM_ROWS  STALE
+------------------------------ -----------  -----
+EMPLOYEES                              107  NO   
+
+COLUMN STATISTICS for EMPLOYEES
+
+COLUMN_NAME                   NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------- ------------ ---------- ----- ------- -------------------------------- --------------------------------
+COMMISSION_PCT                           7         72               .1                               .4
+DEPARTMENT_ID                           11          1 FREQ  11      10                               110
+EMAIL                                  107          0               ABANDA                           WTAYLOR
+EMPLOYEE_ID                            107          0               100                              206
+FIRST_NAME                              91          0               Adam                             Winston
+HIRE_DATE                               98          0 FREQ  98      13-JAN-2001 00:00:00             21-APR-2008 00:00:00
+JOB_ID                                  19          0               AC_ACCOUNT                       ST_MAN
+LAST_NAME                              102          0               Abel                             Zlotkey
+MANAGER_ID                              18          1               100                              205
+PHONE_NUMBER                           107          0               011.44.1343.329                  650.509.4876
+SALARY                                  58          0               2100                             24000
+
+INDEX STATISTICS for EMPLOYEES
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+------------------------------ ------- --------- ----------
+EMP_DEPARTMENT_IX                   11       107 NONUNIQUE
+-->DEPARTMENT_ID
+
+EMP_EMAIL_UK                       107       107 UNIQUE
+-->EMAIL
+
+EMP_EMP_ID_PK                      107       107 UNIQUE
+-->EMPLOYEE_ID
+
+EMP_ID_SAL                          74       107 NONUNIQUE
+-->DEPARTMENT_ID,SALARY
+
+EMP_JOB_IX                          19       107 NONUNIQUE
+-->JOB_ID
+
+EMP_MANAGER_IX                      18       107 NONUNIQUE
+-->MANAGER_ID
+
+EMP_NAME_IX                        107       107 NONUNIQUE
+-->LAST_NAME,FIRST_NAME
+
+
+
+TABLE STATISTICS for DEPARTMENTS
+                                           
+TABLE_NAME                NUM_ROWS   STALE 
+----------------------------------   ----- 
+DEPARTMENTS                     27   NO    
+
+COLUMN STATISTICS for DEPARTMENTS
+
+COLUMN_NAME                  NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------------------- ---------- ----- ------- -------------------------------- --------------------------------
+DEPARTMENT_ID                          27          0               10                               270
+DEPARTMENT_NAME                        27          0               Accounting                       Treasury
+LOCATION_ID                             7          0 FREQ  7       1400                             2700
+MANAGER_ID                             11         16               100                              205
+
+INDEX STATISTICS for DEPARTMENTS
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+--------------------------------------  -------- ----------
+DEPT_ID_PK                          27        27 UNIQUE
+-->DEPARTMENT_ID                        
+                                        
+DEPT_LOCATION_IX                     7        27 NONUNIQUE
+-->LOCATION_ID
+
+
+
+Resolution:
+
+Whenever there is a exist operator, we have to make sure that the subquery within the exist operator is not accessed or executed first. This will result in passing each table row from the outer table inside the exist operator and validate the exist condition. The bigger the size of the outer table, more time it is going to take.
+
+Hence, we should pass less number of rows inside the exist operator query. For that we should be executing the other parts of the query and if possible touch exist operator clause in the end.
+
+
+SELECT /*+ LEADING(E) */ E.FIRST_NAME,E.LAST_NAME,E.HIRE_DATE
+FROM  EMPLOYEES E, DEPARTMENTS D
+WHERE E.EMPLOYEE_ID IN (101,102,103,104,105 )
+AND EXISTS ( SELECT JOB_ID FROM JOBS J WHERE J.JOB_ID = E.JOB_ID )
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID;
+
+
+FIRST_NAME           LAST_NAME                 HIRE_DATE
+-------------------- ------------------------- --------------------
+Neena                Kochhar                   21-SEP-2005 00:00:00
+Lex                  De Haan                   13-JAN-2001 00:00:00
+Alexander            Hunold                    03-JAN-2006 00:00:00
+Bruce                Ernst                     21-MAY-2007 00:00:00
+David                Austin                    25-JUN-2005 00:00:00
+
+
+
+Plan hash value: 2343956440
+
+-----------------------------------------------------------------------------------------------
+| Id  | Operation                     | Name          | Rows  | Bytes | Cost (%CPU)| Time     |
+-----------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT              |               |     5 |   215 |     2   (0)| 00:00:01 |
+|   1 |  NESTED LOOPS                 |               |     5 |   215 |     2   (0)| 00:00:01 |
+|   2 |   INLIST ITERATOR             |               |       |       |            |          |
+|   3 |    TABLE ACCESS BY INDEX ROWID| EMPLOYEES     |     5 |   195 |     1   (0)| 00:00:01 |
+|*  4 |     INDEX UNIQUE SCAN         | EMP_EMP_ID_PK |     5 |       |     1   (0)| 00:00:01 |
+|*  5 |   INDEX UNIQUE SCAN           | DEPT_ID_PK    |     1 |     4 |     1   (0)| 00:00:01 |
+-----------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   4 - access("E"."EMPLOYEE_ID"=101 OR "E"."EMPLOYEE_ID"=102 OR "E"."EMPLOYEE_ID"=103
+              OR "E"."EMPLOYEE_ID"=104 OR "E"."EMPLOYEE_ID"=105)
+   5 - access("E"."DEPARTMENT_ID"="D"."DEPARTMENT_ID")
+
+
+DBMS_METADATA.GET_DDL('TABLE','EMPLOYEES','HR')
+--------------------------------------------------------------------------------
+
+  CREATE TABLE "HR"."EMPLOYEES"
+   (    "EMPLOYEE_ID" NUMBER(6,0),
+        "FIRST_NAME" VARCHAR2(20),
+        "LAST_NAME" VARCHAR2(25) CONSTRAINT "EMP_LAST_NAME_NN" NOT NULL ENABLE,
+        "EMAIL" VARCHAR2(25) CONSTRAINT "EMP_EMAIL_NN" NOT NULL ENABLE,
+        "PHONE_NUMBER" VARCHAR2(20),
+        "HIRE_DATE" DATE CONSTRAINT "EMP_HIRE_DATE_NN" NOT NULL ENABLE,
+        "JOB_ID" VARCHAR2(10) CONSTRAINT "EMP_JOB_NN" NOT NULL ENABLE,
+        "SALARY" NUMBER(8,2),
+        "COMMISSION_PCT" NUMBER(2,2),
+        "MANAGER_ID" NUMBER(6,0),
+        "DEPARTMENT_ID" NUMBER(4,0),
+         CONSTRAINT "EMP_SALARY_MIN" CHECK (salary > 0) ENABLE,
+         CONSTRAINT "EMP_EMP_ID_PK" PRIMARY KEY ("EMPLOYEE_ID")
+  USING INDEX PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS
+  STORAGE(INITIAL 65536 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+  PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1
+  BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "SYSAUX"  ENABLE,
+         CONSTRAINT "EMP_EMAIL_UK" UNIQUE ("EMAIL")
+  USING INDEX PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS
+  STORAGE(INITIAL 65536 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+  PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1
+  BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "SYSAUX"  ENABLE,
+         CONSTRAINT "EMP_MANAGER_FK" FOREIGN KEY ("MANAGER_ID")
+          REFERENCES "HR"."EMPLOYEES" ("EMPLOYEE_ID") ENABLE,
+         CONSTRAINT "EMP_JOB_FK" FOREIGN KEY ("JOB_ID")
+          REFERENCES "HR"."JOBS" ("JOB_ID") ENABLE
+   ) SEGMENT CREATION IMMEDIATE
+  PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255
+ NOCOMPRESS LOGGING
+  STORAGE(INITIAL 65536 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+  PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1
+  BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "SYSAUX"
