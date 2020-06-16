@@ -1,5 +1,5 @@
 
-Case Study 5
+Case Study 5 (Hash join required when large data set is returning)
 ---------------------------------------------------------------------------------------------------------------
 
 SELECT E.FIRST_NAME,E.LAST_NAME,E.HIRE_DATE
