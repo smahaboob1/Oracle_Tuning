@@ -1,1 +1,3 @@
-Query execution should not start with join operation
+1. Query execution should not start with join operation
+2. Create Index on the column which has max number of distinct rows (close to total records in the table)
+3. Create Index on the column that has '=' operator in SQL (< or > will return multiple records)
