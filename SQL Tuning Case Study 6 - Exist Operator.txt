@@ -1,5 +1,5 @@
 
-Case Study 6
+Case Study 6: (exists operator should not execute first)
 ---------------------------------------------------------------------------------------------------------------
 
 SELECT E.FIRST_NAME,E.LAST_NAME,E.HIRE_DATE
