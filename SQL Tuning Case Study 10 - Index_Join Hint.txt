@@ -1,0 +1,175 @@
+Case Study 9:
+---------------------------------------------------------------------------------------------------------------
+
+SELECT count(*)
+FROM  EMPLOYEES E,DEPARTMENTS D  
+WHERE E.JOB_ID='ST_MAN' 
+AND E.DEPARTMENT_ID = 100
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID
+AND D.LOCATION_ID  = 1700;
+
+  COUNT(*)
+----------
+         0
+
+SQL>  select count(*) from employees e where  E.JOB_ID='ST_MAN' and E.DEPARTMENT_ID = 100;
+
+  COUNT(*)
+----------
+         0
+
+Plan hash value: 3715151156
+
+----------------------------------------------------------------------------------------------
+| Id  | Operation                      | Name        | Rows  | Bytes | Cost (%CPU)| Time     |
+----------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT               |             |     1 |    19 |     2   (0)| 00:00:01 |
+|   1 |  SORT AGGREGATE                |             |     1 |    19 |            |          |
+|   2 |   MERGE JOIN CARTESIAN         |             |     1 |    19 |     2   (0)| 00:00:01 |
+|*  3 |    TABLE ACCESS BY INDEX ROWID | EMPLOYEES   |     1 |    12 |     1   (0)| 00:00:01 |
+|*  4 |     INDEX RANGE SCAN           | EMP_JOB_IX  |     6 |       |     1   (0)| 00:00:01 |
+|   5 |    BUFFER SORT                 |             |     1 |     7 |     1   (0)| 00:00:01 |
+|*  6 |     TABLE ACCESS BY INDEX ROWID| DEPARTMENTS |     1 |     7 |     1   (0)| 00:00:01 |
+|*  7 |      INDEX UNIQUE SCAN         | DEPT_ID_PK  |     1 |       |     1   (0)| 00:00:01 |
+----------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   3 - filter("E"."DEPARTMENT_ID"=100)
+   4 - access("E"."JOB_ID"='ST_MAN')
+   6 - filter("D"."LOCATION_ID"=1700)
+   7 - access("D"."DEPARTMENT_ID"=100)
+
+
+
+TABLE STATISTICS  for EMPLOYEES
+                                                 
+TABLE_NAME                        NUM_ROWS  STALE
+------------------------------ -----------  -----
+EMPLOYEES                              107  NO   
+
+COLUMN STATISTICS for EMPLOYEES
+
+COLUMN_NAME                   NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------- ------------ ---------- ----- ------- -------------------------------- --------------------------------
+COMMISSION_PCT                           7         72               .1                               .4
+DEPARTMENT_ID                           11          1 FREQ  11      10                               110
+EMAIL                                  107          0               ABANDA                           WTAYLOR
+EMPLOYEE_ID                            107          0               100                              206
+FIRST_NAME                              91          0               Adam                             Winston
+HIRE_DATE                               98          0 FREQ  98      13-JAN-2001 00:00:00             21-APR-2008 00:00:00
+JOB_ID                                  19          0               AC_ACCOUNT                       ST_MAN
+LAST_NAME                              102          0               Abel                             Zlotkey
+MANAGER_ID                              18          1               100                              205
+PHONE_NUMBER                           107          0               011.44.1343.329                  650.509.4876
+SALARY                                  58          0               2100                             24000
+
+INDEX STATISTICS for EMPLOYEES
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+------------------------------ ------- --------- ----------
+EMP_DEPARTMENT_IX                   11       107 NONUNIQUE
+-->DEPARTMENT_ID
+
+EMP_EMAIL_UK                       107       107 UNIQUE
+-->EMAIL
+
+EMP_EMP_ID_PK                      107       107 UNIQUE
+-->EMPLOYEE_ID
+
+EMP_ID_SAL                          74       107 NONUNIQUE
+-->DEPARTMENT_ID,SALARY
+
+EMP_JOB_IX                          19       107 NONUNIQUE
+-->JOB_ID
+
+EMP_MANAGER_IX                      18       107 NONUNIQUE
+-->MANAGER_ID
+
+EMP_NAME_IX                        107       107 NONUNIQUE
+-->LAST_NAME,FIRST_NAME
+
+
+
+TABLE STATISTICS for DEPARTMENTS
+                                           
+TABLE_NAME                NUM_ROWS   STALE 
+----------------------------------   ----- 
+DEPARTMENTS                     27   NO    
+
+COLUMN STATISTICS for DEPARTMENTS
+
+COLUMN_NAME                  NUM_DISTINCT  NUM_NULLS HIST  BUCKETS LOW_VALUE                        HIGH_VALUE
+----------------------------------------- ---------- ----- ------- -------------------------------- --------------------------------
+DEPARTMENT_ID                          27          0               10                               270
+DEPARTMENT_NAME                        27          0               Accounting                       Treasury
+LOCATION_ID                             7          0 FREQ  7       1400                             2700
+MANAGER_ID                             11         16               100                              205
+
+INDEX STATISTICS for DEPARTMENTS
+
+INDEX_NAME                     NUMDIST  NUM_ROWS UNIQUENESS
+--------------------------------------  -------- ----------
+DEPT_ID_PK                          27        27 UNIQUE
+-->DEPARTMENT_ID                        
+                                        
+DEPT_LOCATION_IX                     7        27 NONUNIQUE
+-->LOCATION_ID
+
+
+
+Resolution:
+
+In this case E.JOB_ID='ST_MAN' will be accessed using INDEX EMP_JOB_IX and E.DEPARTMENT_ID = 100 will be accessed using INDEX EMP_DEPARTMENT_IX separatley and a view will be created out of these which is the index$_join$001. THis view then performs a join operation with the departments table. There is a btree index access path rather then bitmpat conversion which we have seen in INDEX_COMBINE hint.
+
+SELECT  /*+ INDEX_JOIN(E EMP_DEPARTMENT_IX EMP_JOB_IX) */ count(*)
+
+FROM  EMPLOYEES E,DEPARTMENTS D  
+
+WHERE E.JOB_ID='ST_MAN' 
+AND E.DEPARTMENT_ID = 100
+AND E.DEPARTMENT_ID = D.DEPARTMENT_ID
+AND D.LOCATION_ID  = 1700;
+
+Plan hash value: 2487417711
+
+----------------------------------------------------------------------------------------------------
+| Id  | Operation                      | Name              | Rows  | Bytes | Cost (%CPU)| Time     |
+----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT               |                   |     1 |    19 |     3   (0)| 00:00:01 |
+|   1 |  SORT AGGREGATE                |                   |     1 |    19 |            |          |
+|   2 |   MERGE JOIN CARTESIAN         |                   |     1 |    19 |     3   (0)| 00:00:01 |
+|*  3 |    VIEW                        | index$_join$_001  |     1 |    12 |     2   (0)| 00:00:01 |
+|*  4 |     HASH JOIN                  |                   |       |       |            |          |
+|*  5 |      INDEX RANGE SCAN          | EMP_JOB_IX        |     1 |    12 |     1   (0)| 00:00:01 |
+|*  6 |      INDEX RANGE SCAN          | EMP_DEPARTMENT_IX |     1 |    12 |     1   (0)| 00:00:01 |
+|   7 |    BUFFER SORT                 |                   |     1 |     7 |     1   (0)| 00:00:01 |
+|*  8 |     TABLE ACCESS BY INDEX ROWID| DEPARTMENTS       |     1 |     7 |     1   (0)| 00:00:01 |
+|*  9 |      INDEX UNIQUE SCAN         | DEPT_ID_PK        |     1 |       |     1   (0)| 00:00:01 |
+----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   3 - filter("E"."JOB_ID"='ST_MAN' AND "E"."DEPARTMENT_ID"=100)
+   4 - access(ROWID=ROWID)
+   5 - access("E"."JOB_ID"='ST_MAN')
+   6 - access("E"."DEPARTMENT_ID"=100)
+   8 - filter("D"."LOCATION_ID"=1700)
+   9 - access("D"."DEPARTMENT_ID"=100)
+
+
+
+SQL> select count(*) from employees where DEPARTMENT_ID = 100;
+
+  COUNT(*)
+----------
+         6
+
+SQL> select count(*) from employees where JOB_ID = 'ST_MAN';
+
+  COUNT(*)
+----------
+         6
+
