@@ -1,0 +1,118 @@
+Case Study 11:
+---------------------------------------------------------------------------------------------------------------
+
+SELECT  /*+ LEADING (D2) Case_Study_11 */ E.FIRST_NAME,E.LAST_NAME
+
+FROM  EMPLOYEES E,DEPARTMENTS D, JOBS J, LOCATIONS L, COUNTRIES C
+
+WHERE E.EMPLOYEE_ID IN ( SELECT MANAGER_ID FROM DEPARTMENTS D2 WHERE DEPARTMENT_ID=10 )
+AND E.PHONE_NUMBER       = '011.44.1344.345268'
+AND E.HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS')    
+AND E.HIRE_DATE < to_date('30-JAN-2006 00:00:00','DD-MON-YYYY HH24:MI:SS')
+AND E.COMMISSION_PCT IN ( .25 , .15 )
+AND D.DEPARTMENT_ID = E.DEPARTMENT_ID
+AND D.LOCATION_ID  = 1700
+AND J.JOB_ID = E.JOB_ID
+AND J.MIN_SALARY > 1000
+AND L.LOCATION_ID = D.LOCATION_ID
+AND L.CITY = 'Bombay'
+AND C.COUNTRY_ID = L.COUNTRY_ID
+AND C.REGION_ID > 3
+AND EXISTS ( SELECT JOB_ID FROM JOBS J WHERE J.JOB_ID = E.JOB_ID );
+
+no rows selected.
+
+Plan hash value: 4034590935
+
+----------------------------------------------------------------------------------------------------
+| Id  | Operation                        | Name            | Rows  | Bytes | Cost (%CPU)| Time     |
+----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                 |                 |     1 |   103 |     6   (0)| 00:00:01 |
+|   1 |  NESTED LOOPS                    |                 |     1 |   103 |     6   (0)| 00:00:01 |
+|   2 |   NESTED LOOPS                   |                 |     1 |    97 |     5   (0)| 00:00:01 |
+|   3 |    NESTED LOOPS                  |                 |     1 |    82 |     4   (0)| 00:00:01 |
+|   4 |     NESTED LOOPS                 |                 |     1 |    70 |     3   (0)| 00:00:01 |
+|   5 |      NESTED LOOPS                |                 |     1 |    63 |     2   (0)| 00:00:01 |
+|*  6 |       TABLE ACCESS BY INDEX ROWID| DEPARTMENTS     |     1 |     7 |     1   (0)| 00:00:01 |
+|*  7 |        INDEX UNIQUE SCAN         | DEPT_ID_PK      |     1 |       |     1   (0)| 00:00:01 |
+|*  8 |       TABLE ACCESS BY INDEX ROWID| EMPLOYEES       |     1 |    56 |     1   (0)| 00:00:01 |
+|*  9 |        INDEX UNIQUE SCAN         | EMP_EMP_ID_PK   |     1 |       |     1   (0)| 00:00:01 |
+|* 10 |      TABLE ACCESS BY INDEX ROWID | DEPARTMENTS     |     1 |     7 |     1   (0)| 00:00:01 |
+|* 11 |       INDEX UNIQUE SCAN          | DEPT_ID_PK      |     1 |       |     1   (0)| 00:00:01 |
+|* 12 |     TABLE ACCESS BY INDEX ROWID  | JOBS            |     1 |    12 |     1   (0)| 00:00:01 |
+|* 13 |      INDEX UNIQUE SCAN           | JOB_ID_PK       |     1 |       |     1   (0)| 00:00:01 |
+|* 14 |    TABLE ACCESS BY INDEX ROWID   | LOCATIONS       |     1 |    15 |     1   (0)| 00:00:01 |
+|* 15 |     INDEX UNIQUE SCAN            | LOC_ID_PK       |     1 |       |     1   (0)| 00:00:01 |
+|* 16 |   INDEX UNIQUE SCAN              | COUNTRY_C_ID_PK |     1 |     6 |     1   (0)| 00:00:01 |
+----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   6 - filter("MANAGER_ID" IS NOT NULL)
+   7 - access("DEPARTMENT_ID"=10)
+   8 - filter("E"."PHONE_NUMBER"='011.44.1344.345268' AND "E"."HIRE_DATE"<TO_DATE('2006-01-30 00:00:00', 'syyyy-mm-dd hh24:mi:ss') AND ("E"."COMMISSION_PCT"=.15 OR
+              "E"."COMMISSION_PCT"=.25) AND "E"."HIRE_DATE">TO_DATE(' 2004-01-30 00:00:00', 'syyyy-mm-ddhh24:mi:ss'))
+   9 - access("E"."EMPLOYEE_ID"="MANAGER_ID")
+  10 - filter("D"."LOCATION_ID"=1700)
+  11 - access("D"."DEPARTMENT_ID"="E"."DEPARTMENT_ID")
+  12 - filter("J"."MIN_SALARY">1000)
+  13 - access("J"."JOB_ID"="E"."JOB_ID")
+  14 - filter("L"."CITY"='Bombay')
+  15 - access("L"."LOCATION_ID"=1700)
+  16 - access("C"."COUNTRY_ID"="L"."COUNTRY_ID")
+       filter("C"."REGION_ID">3)
+
+
+Resolution: 
+
+Use the fundamental approach always and start with such a column in the where part of the clause which qulaifies for the east number of rows. In this case, E.EMPLOYEE_ID IN ( SELECT MANAGER_ID FROM DEPARTMENTS D2 WHERE DEPARTMENT_ID=10 ) is going to qualify for only one row i.e. E.EMPLOYEE_ID = 200 since EMPLOYEE_ID in EMPLOYEES is a primary key. later join of EMPLOYEES table with DEPARTMENTS table is also going to qualify for only one row as DEPARMENT_ID is a primary key in DEPARTMENTS tables. Same is applicable for join operations on JOBS, LOCATIONS and COUNTRIES table.
+
+Always use the exist operator in the end.
+
+
+
+SQL> SELECT MANAGER_ID FROM DEPARTMENTS D2 WHERE DEPARTMENT_ID=10;
+
+MANAGER_ID
+----------
+       200
+
+SQL> select count(*) from employees where PHONE_NUMBER = '011.44.1344.345268';
+
+  COUNT(*)
+----------
+         1
+
+SQL>  select count(*) from employees where HIRE_DATE > to_date('30-JAN-2004 00:00:00','DD-MON-YYYY HH24:MI:SS') and HIRE_DATE < to_date('30-JAN-2006 00:00:00','DD-MON-YYYY HH24:MI:SS');
+
+  COUNT(*)
+----------
+        40
+
+SQL>  select count(*) from locations where location_id=1700;
+
+  COUNT(*)
+----------
+         1
+
+
+SQL> select count(*) from jobs where MIN_SALARY > 1000;
+
+  COUNT(*)
+----------
+        19
+
+SQL> select count(*) from locations where city='Bombay';
+
+  COUNT(*)
+----------
+         1
+
+SQL> select count(*) from countries where REGION_ID > 3;
+
+  COUNT(*)
+----------
+         6
+
+
